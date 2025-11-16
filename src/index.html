@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Доска задач</title>
+</head>
+<body>
+  <header class="header-title">
+    <h1>Task board</h1>
+  </header>
+  <main class="columns">
+    <article class="column" id="todo-column">
+      <h2 class="column-title">TODO</h2>
+      <div class="cards" id="todo-cards"></div>
+      <div class="add-card-button"> Add another card</div>
+      <div class="card-form">
+        <form class="add-card-form" id="todo-form">
+          <textarea name="card-text" class="text-input" placeholder="Enter a title for this card..." required >
+          </textarea>
+          <div class="buttons-container">
+            <button class="add-btn" type="submit">Add card</button>
+            <button type="button" class="close-form" title="Close">
+              <span class="icon-cross">&#10007</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </article>
+
+    <article class="column" id="inProgress-column">
+      <h2 class="column-title">IN PROGRESS</h2>
+      <div class="cards" id="inProgress-cards"></div>
+      <div class="add-card-button"> Add another card</div>
+      <div class="card-form">
+        <form class="add-card-form" id="todo-form">
+          <textarea name="card-text" class="text-input" placeholder="Enter a title for this card..." required >
+          </textarea>
+          <div class="buttons-container">
+            <button class="add-btn" type="submit">Add card</button>
+            <button type="button" class="close-form" title="Close">
+              <span class="icon-cross">&#10007</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </article>
+
+    <article class="column" id="done-column">
+      <h2 class="column-title">DONE</h2>
+      <div class="cards" id="done-cards"></div>
+      <div class="add-card-button"> Add another card</div>
+      <div class="card-form">
+        <form class="add-card-form" id="todo-form">
+          <textarea name="card-text" class="text-input" placeholder="Enter a title for this card..." required >
+          </textarea>
+          <div class="buttons-container">
+            <button class="add-btn" type="submit">Add card</button>
+            <button type="button" class="close-form" title="Close">
+              <span class="icon-cross">&#10007</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </article>
+  </main>
+</body>
+</html>
