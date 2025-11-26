@@ -1,3 +1,5 @@
+import Storage from "./storage";
+
 export default class Card {
   constructor(id, text, columnId) {
     this.columnId = columnId;
@@ -26,12 +28,7 @@ export default class Card {
 
   remove() {
     this.element.remove();
-    this.updateLocalStorageOnRemove();
-  }
-
-  updateLocalStorageOnRemove() {
-    const data = JSON.parse(localStorage.getItem("cards")) || [];
-    const newData = data.filter((card) => card.id !== this.id);
-    localStorage.setItem("cards", JSON.stringify(newData));
+    const storage = new Storage();
+    storage.updateLocalStorageOnRemove(this.id);
   }
 }

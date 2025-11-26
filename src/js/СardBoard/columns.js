@@ -1,9 +1,11 @@
 import Card from "./card";
+import Storage from "./storage";
 
 export default class Column {
   static get selectors() {
     return {
       cardsContainer: ".cards",
+      card: ".card",
       addButton: ".add-card-button",
       form: ".card-form",
       input: ".text-input",
@@ -20,7 +22,14 @@ export default class Column {
     this.form = this.element.querySelector(Column.selectors.form);
     this.input = this.element.querySelector(Column.selectors.input);
     this.closeForm = this.element.querySelector(Column.selectors.closeForm);
-    this.bindToDOM();
+
+    if (!this.cardsContainer || !this.addButton) {
+      throw new Error("Не удалось найти основные DOM элементы");
+    }
+
+    if (this.form && this.input && this.closeForm) {
+      this.bindToDOM();
+    }
   }
 
   bindToDOM() {
@@ -57,21 +66,19 @@ export default class Column {
     this.addCard(card);
     this.clearForm();
     this.hideForm();
-    this.saveToLocalStorage(id, text, columnId);
-  }
-
-  clearForm() {
-    this.input.value = "";
+    const index =
+      Array.from(this.cardsContainer.querySelectorAll(Column.selectors.card))
+        .length - 1;
+    const storage = new Storage();
+    storage.saveToLocalStorage(id, text, columnId, index);
   }
 
   addCard(card) {
     this.cardsContainer.append(card.element);
   }
 
-  saveToLocalStorage(id, text, columnId) {
-    const data = JSON.parse(localStorage.getItem("cards")) || [];
-    data.push({ id, content: text, columnId });
-    localStorage.setItem("cards", JSON.stringify(data));
+  clearForm() {
+    this.input.value = "";
   }
 
   generateUniqueId() {

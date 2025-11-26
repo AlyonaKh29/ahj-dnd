@@ -1,4 +1,5 @@
 import Column from "./columns";
+import Storage from "./storage";
 
 export default class Board {
   static get selectors() {
@@ -20,6 +21,10 @@ export default class Board {
     this.placeholder = null;
     this.offsetX = 0;
     this.offsetY = 0;
+    this._onMouseMove = this.onMouseMove.bind(this);
+    this._onMouseUp = this.onMouseUp.bind(this);
+    this._onTouchMove = this.onTouchMove.bind(this);
+    this._onTouchEnd = this.onTouchEnd.bind(this);
     document.addEventListener("mousedown", (e) => this.onMouseDown(e));
     document.addEventListener("touchstart", (e) => this.onTouchStart(e), {
       passive: false,
@@ -50,8 +55,9 @@ export default class Board {
 
   startDrag(cardEl, e) {
     this.draggedCard = cardEl;
-
+    this.originalContainer = cardEl.closest(Board.selectors.cardsContainer);
     const rect = cardEl.getBoundingClientRect();
+    this.placeholderHeight = rect.height;
     if (e.type.startsWith("touch")) {
       this.offsetX = e.touches[0].clientX - rect.left;
       this.offsetY = e.touches[0].clientY - rect.top;
@@ -59,6 +65,9 @@ export default class Board {
       this.offsetX = e.clientX - rect.left;
       this.offsetY = e.clientY - rect.top;
     }
+
+    this.createPlaceholder();
+    cardEl.parentNode.replaceChild(this.placeholder, cardEl);
 
     this.phantom = cardEl.cloneNode(true);
     this.phantom.style.position = "absolute";
@@ -71,12 +80,12 @@ export default class Board {
 
     this.draggedCard.style.visibility = "hidden";
 
-    document.addEventListener("mousemove", (ev) => this.onMouseMove(ev));
-    document.addEventListener("mouseup", (ev) => this.onMouseUp(ev));
-    document.addEventListener("touchmove", (ev) => this.onTouchMove(ev), {
+    document.addEventListener("mousemove", this._onMouseMove);
+    document.addEventListener("mouseup", this._onMouseUp);
+    document.addEventListener("touchmove", this._onTouchMove, {
       passive: false,
     });
-    document.addEventListener("touchend", (ev) => this.onTouchEnd(ev));
+    document.addEventListener("touchend", this._onTouchEnd);
   }
 
   moveAt(e) {
@@ -88,10 +97,15 @@ export default class Board {
       x = e.clientX;
       y = e.clientY;
     }
-    if (this.phantom) {
-      this.phantom.style.left = x - this.offsetX + "px";
-      this.phantom.style.top = y - this.offsetY + "px";
+
+    if (!this.phantom) return;
+
+    const containerRect = this.originalContainer.getBoundingClientRect();
+    if (y - this.offsetY < containerRect.top) {
+      y = containerRect.top + this.offsetY;
     }
+    this.phantom.style.left = x - this.offsetX + "px";
+    this.phantom.style.top = y - this.offsetY + "px";
   }
 
   onMouseMove(e) {
@@ -113,45 +127,44 @@ export default class Board {
     if (!elemBelow) return;
 
     const container = elemBelow.closest(Board.selectors.cardsContainer);
-    if (!container || !this.draggedCard) return;
-
-    const children = Array.from(container.children).filter(
-      (c) => !c.classList.contains("placeholder"),
+    if (!container || !this.draggedCard) {
+      if (
+        this.placeholder &&
+        this.originalContainer &&
+        !this.originalContainer.contains(this.placeholder)
+      ) {
+        this.originalContainer.append(this.placeholder);
+      }
+      return;
+    }
+    const children = Array.from(
+      container.querySelectorAll(Board.selectors.card),
     );
 
     // Если колонка пустая (нет карточек кроме возможно перетаскиваемой).
-    if (
-      children.length === 0 ||
-      (children.length === 1 && children[0] === this.draggedCard)
-    ) {
+    if (children.length === 0) {
       if (!this.placeholder || this.placeholder.parentNode !== container) {
         this.createPlaceholder();
         container.append(this.placeholder);
       }
       return;
     }
-
+    // Если картчка перетаскивается в другую колонку, то создать там плейсхолдер.
     if (!this.placeholder || this.placeholder.parentNode !== container) {
       this.createPlaceholder();
     }
-    // при перемещении над своими краями - игнор.
-    if (container.contains(this.draggedCard) && children.length <= 1) {
-      this.removePlaceholder();
+    // Если карточка в колонке единственная.
+    if (children.length === 1 && children[0] === this.draggedCard) {
       return;
     }
-    // проверка верхней границы. Вставляем перед первой карточкой.
     const firstCardRect = children[0].getBoundingClientRect();
     const isBeforeFirst = y < firstCardRect.top + firstCardRect.height * 0.3;
-
-    // Проверка нижней границы. Вставляем после последней карточки.
     const lastCardRect = children[children.length - 1].getBoundingClientRect();
     const isAfterLast = y > lastCardRect.bottom - lastCardRect.height * 0.3;
-
     if (isBeforeFirst) {
       // позиционируем плейсхолдер.
       container.insertBefore(this.placeholder, children[0]);
     } else if (isAfterLast) {
-      // проверка, что не пытаемся вставить после себя же.
       if (children[children.length - 1] !== this.draggedCard) {
         container.append(this.placeholder);
       }
@@ -164,7 +177,7 @@ export default class Board {
     this.removePlaceholder();
     this.placeholder = document.createElement("div");
     this.placeholder.className = "placeholder";
-    this.placeholder.style.height = this.draggedCard.offsetHeight + "px";
+    this.placeholder.style.height = this.placeholderHeight + "px";
   }
 
   positionPlaceholderBetweenCards(container, children, y) {
@@ -196,16 +209,10 @@ export default class Board {
   }
 
   finishDrag(e) {
-    const eventHandlers = {
-      mousemove: (ev) => this.onMouseMove(ev),
-      mouseup: (ev) => this.onMouseUp(ev),
-      touchmove: (ev) => this.onTouchMove(ev),
-      touchend: (ev) => this.onTouchEnd(ev),
-    };
-    Object.keys(eventHandlers).forEach((eventType) => {
-      document.removeEventListener(eventType, eventHandlers[eventType]);
-    });
-
+    document.removeEventListener("mousemove", this._onMouseMove);
+    document.removeEventListener("mouseup", this._onMouseUp);
+    document.removeEventListener("touchmove", this._onTouchMove);
+    document.removeEventListener("touchend", this._onTouchEnd);
     if (!this.draggedCard) return;
 
     const { clientX, clientY } = e.type.startsWith("touch")
@@ -215,6 +222,18 @@ export default class Board {
     const container = elemBelow
       ? elemBelow.closest(Board.selectors.cardsContainer)
       : null;
+
+    // Если отпустили мышь не над контейнером, то вернуть карточку на прежнее место.
+    if (!container) {
+      if (this.placeholder && this.originalContainer) {
+        this.originalContainer.insertBefore(this.draggedCard, this.placeholder);
+      } else if (this.originalContainer) {
+        this.originalContainer.append(this.draggedCard);
+      }
+      this.resetDragState();
+      return;
+    }
+
     if (!this.placeholder || this.placeholder.parentNode !== container) {
       this.resetDragState();
       return;
@@ -224,8 +243,20 @@ export default class Board {
     }
 
     container.insertBefore(this.draggedCard, this.placeholder);
-    this.updateCardMetadataAndStorage(container);
+    const storage = new Storage();
+    storage.updateCardMetadataAndStorage(
+      container.id,
+      this.draggedCard,
+      this.columns,
+    );
     this.resetDragState();
+  }
+
+  removePlaceholder() {
+    if (this.placeholder && this.placeholder.parentNode) {
+      this.placeholder.remove();
+      this.placeholder = null;
+    }
   }
 
   resetDragState() {
@@ -238,49 +269,5 @@ export default class Board {
       this.phantom = null;
     }
     this.removePlaceholder();
-  }
-
-  updateCardMetadataAndStorage(container) {
-    const columnId = container.id;
-    this.draggedCard.setAttribute("data-column", columnId);
-    const cardId = this.draggedCard.dataset.id;
-    this.updateCardColumnInStorage(cardId, columnId);
-    this.updateCardsOrderInStorage();
-  }
-
-  updateCardColumnInStorage(cardId, newColumnId) {
-    const data = JSON.parse(localStorage.getItem("cards")) || [];
-    const cardIndex = data.findIndex((c) => c.id === cardId);
-    if (cardIndex !== -1) {
-      data[cardIndex].columnId = newColumnId;
-      localStorage.setItem("cards", JSON.stringify(data));
-    }
-  }
-
-  updateCardsOrderInStorage() {
-    const data = [];
-    this.columns.forEach((column) => {
-      const colCards = column.element.querySelector(
-        Board.selectors.cardsContainer,
-      );
-      const cards = Array.from(colCards.querySelectorAll(Board.selectors.card));
-      const colId = colCards.id;
-      cards.forEach((card, index) => {
-        data.push({
-          id: card.getAttribute("data-id"),
-          content: card.querySelector(Board.selectors.content).textContent,
-          columnId: colId,
-          order: index,
-        });
-      });
-    });
-    localStorage.setItem("cards", JSON.stringify(data));
-  }
-
-  removePlaceholder() {
-    if (this.placeholder && this.placeholder.parentNode) {
-      this.placeholder.remove();
-      this.placeholder = null;
-    }
   }
 }
